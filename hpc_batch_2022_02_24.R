@@ -16,8 +16,8 @@ source("source_code.R")
 ##
 
 nSim <- 5000
-soc_theta <- seq(0.15,0.35,by=0.05)
-true_theta <- seq(0.15,0.35,by=0.05)
+soc_theta <- seq(0.05,0.35,by=0.05)
+true_theta <- seq(0.05,0.35,by=0.05)
 delta <- seq(0.10,0.15,by=0.01)
 soc_arm <- c(1)
 nMax <- c(400)
