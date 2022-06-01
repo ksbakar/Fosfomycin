@@ -237,27 +237,47 @@ trial_interim_simulator_2 <- function(n_sample=seq(100,500,50),
 
 ## decision function based on probability
 
+library(devtools)
+install_github("jatotterdell/binbayesrct")
+library(binbayesrct)
+library(dplyr)
+
 decision_fnc <- function(pr,D1,D2,nMax){
   ##
   pr <- pr[,1:which(dimnames(pr)[[2]]%in%paste0("ss",nMax))]
+  n_seq <- as.numeric(gsub("ss","",colnames(pr)))
+  ##
   ##
   unsafe <- c()
   safe <- c()
   for(i in 1:nrow(pr)){
-    safe[i] <- names(which(pr[i,]>D2)[1]) # safe
-    unsafe[i] <- names(which(pr[i,]<D1)[1]) # unsafe
+    safe[i] <- names(which(pr[i,]>D2)[1]) # prob of fosfo is safe (i.e., non-inferior) > 0.97 =>safe 
+    unsafe[i] <- names(which(pr[i,]<D1)[1]) # prob of fosfo is safe (i.e., non-inferior) < 0.1 =>unsafe
   }
   Pr_safe <- length(na.omit(safe))/length(safe)
   Pr_unsafe <- length(na.omit(unsafe))/length(unsafe)
-  sample_size <- c(unsafe[complete.cases(unsafe)])
-  sample_size <- as.numeric(gsub("ss","",sample_size))
-  sample_size <- c(sample_size, rep(nMax, nrow(pr) - length(sample_size)))
-  Pr_stop_early <- mean(sample_size < nMax)
+  ##
+  df <- data.frame(trial=rep(1:nrow(pr),ncol(pr)),interim=rep(1:ncol(pr),each=nrow(pr)),p_ninf=c(pr))
+  ##
+  summ <- df %>%
+    group_by(trial) %>%
+    summarise(
+      # Find the first interim where a threshold is exceeded
+      first = binbayesrct::findfirst(p_ninf > D2 | p_ninf < D1),
+      p = p_ninf[first],
+    )
+  # Expected sample size
+  ss <- summ %>%
+    mutate(ss = if_else(is.na(first), max(n_seq), n_seq[first])) %>%
+    summarise(mean(ss), pr_stop_early = mean(ss < max(n_seq)))
   dat <- data.frame(nMax=nMax, D1=D1, D2=D2,
-                    Pr_safe=Pr_safe,Pr_unsafe=Pr_unsafe,Pr_stop_early=Pr_stop_early,
-                    Mean_sample_size=mean(sample_size),SD_sample_size=sd(sample_size))
+                    Pr_noninferior=Pr_safe,
+                    Pr_inferior=Pr_unsafe,
+                    Pr_stop_early=unlist(ss[1,2]),
+                    Mean_sample_size=unlist(ss[1,1]))
   round(dat,2)
 }
+
 
 ########################################################################################################################
 ########################################################################################################################
